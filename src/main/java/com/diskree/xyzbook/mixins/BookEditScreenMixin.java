@@ -11,11 +11,14 @@ import net.minecraft.client.util.SelectionManager;
 import net.minecraft.client.util.math.Rect2i;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.screen.ScreenTexts;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -46,6 +49,9 @@ public abstract class BookEditScreenMixin extends Screen {
     private String xyz;
 
     @Unique
+    private RegistryKey<World> dimension;
+
+    @Unique
     private void insertEntry(String entryName) {
         int lastNotEmptyPage = countPages() - 1;
         if (currentPage != lastNotEmptyPage) {
@@ -53,7 +59,7 @@ public abstract class BookEditScreenMixin extends Screen {
             updateButtons();
             changePage();
         }
-        String textToAppend = entryName + ScreenTexts.LINE_BREAK.getString();
+        String textToAppend = entryName + ScreenTexts.LINE_BREAK.getString() + xyz + ScreenTexts.LINE_BREAK.getString() + getDimensionName() + ScreenTexts.LINE_BREAK.getString() + "-------------------" + ScreenTexts.LINE_BREAK.getString();
         if (textRenderer.getWrappedLinesHeight(getCurrentPageContent() + textToAppend, MAX_TEXT_WIDTH) > MAX_TEXT_HEIGHT) {
             openNextPage();
             if (currentPage == lastNotEmptyPage) {
@@ -68,6 +74,19 @@ public abstract class BookEditScreenMixin extends Screen {
         currentPageSelectionManager.insert(textToAppend);
         invalidatePageContent();
         finalizeBook(false);
+    }
+
+    @Unique
+    @NotNull
+    private String getDimensionName() {
+        if (dimension == World.OVERWORLD) {
+            return Text.translatable("flat_world_preset.minecraft.overworld").getString();
+        } else if (dimension == World.NETHER) {
+            return Text.translatable("advancements.nether.root.title").getString();
+        } else if (dimension == World.END) {
+            return Text.translatable("advancements.end.root.title").getString();
+        }
+        return dimension.getValue().toString();
     }
 
     protected BookEditScreenMixin() {
@@ -170,6 +189,7 @@ public abstract class BookEditScreenMixin extends Screen {
         if (isXYZBook) {
             newEntryButton = addDrawableChild(ButtonWidget.builder(Text.translatable("xyzbook.new_entry"), button -> {
                 xyz = (int) player.getX() + " " + (int) player.getY() + " " + (int) player.getZ();
+                dimension = player.getWorld().getRegistryKey();
                 signedByText = Text.literal(xyz).formatted(Formatting.DARK_GRAY, Formatting.ITALIC);
                 FINALIZE_WARNING_TEXT = Text.translatable("xyzbook.new_entry.note");
                 signing = true;
