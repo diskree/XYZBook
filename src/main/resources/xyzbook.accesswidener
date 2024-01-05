@@ -1,3 +1,8 @@
 accessWidener v2 named
 
 accessible class net/minecraft/client/gui/screen/ingame/BookEditScreen$Position
+
+accessible field net/minecraft/client/util/SelectionManager stringGetter Ljava/util/function/Supplier;
+accessible field net/minecraft/client/util/SelectionManager stringSetter Ljava/util/function/Consumer;
+accessible field net/minecraft/client/util/SelectionManager clipboardGetter Ljava/util/function/Supplier;
+accessible field net/minecraft/client/util/SelectionManager clipboardSetter Ljava/util/function/Consumer;

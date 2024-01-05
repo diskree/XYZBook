@@ -28,6 +28,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class BookEditScreenMixin extends Screen {
 
     @Unique
+    private static final int MAX_ENTRY_NAME_LENGTH = 50;
+
+    @Unique
     private static final Identifier XYZ_BOOK_TEXTURE = new Identifier(XYZBook.ID, "textures/gui/xyzbook.png");
 
     @Unique
@@ -140,11 +143,25 @@ public abstract class BookEditScreenMixin extends Screen {
     @Shadow
     private ButtonWidget doneButton;
 
+    @Mutable
+    @Shadow
+    @Final
+    private SelectionManager bookTitleSelectionManager;
+
     @Inject(method = "<init>", at = @At(value = "RETURN"))
     public void identifyCustomBook(CallbackInfo ci) {
         if (itemStack != null) {
             String name = itemStack.getName().getString();
             isXYZBook = name != null && name.toLowerCase().contains("xyz");
+        }
+        if (isXYZBook) {
+            bookTitleSelectionManager = new SelectionManager(
+                    bookTitleSelectionManager.stringGetter,
+                    bookTitleSelectionManager.stringSetter,
+                    bookTitleSelectionManager.clipboardGetter,
+                    bookTitleSelectionManager.clipboardSetter,
+                    (string) -> string.length() < MAX_ENTRY_NAME_LENGTH
+            );
         }
     }
 
@@ -194,6 +211,17 @@ public abstract class BookEditScreenMixin extends Screen {
     @ModifyArg(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/DrawContext;drawText(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/OrderedText;IIIZ)I"), index = 3)
     public int moveTitle(int originalValue) {
         return isXYZBook ? originalValue - 16 : originalValue;
+    }
+
+    @ModifyArg(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/text/OrderedText;styledForwardsVisitedString(Ljava/lang/String;Lnet/minecraft/text/Style;)Lnet/minecraft/text/OrderedText;"), index = 0)
+    public String ellipsisTitle(String title) {
+        if (isXYZBook) {
+            int maxWidth = MAX_TEXT_WIDTH - 10;
+            if (textRenderer.getWidth(title) >= maxWidth) {
+                return title.substring(title.length() - textRenderer.trimToWidth(title, maxWidth).length());
+            }
+        }
+        return title;
     }
 
     @Inject(method = "drawCursor", at = @At(value = "HEAD"), cancellable = true)
