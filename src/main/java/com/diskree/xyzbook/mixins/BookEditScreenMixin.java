@@ -1,12 +1,14 @@
 package com.diskree.xyzbook.mixins;
 
 import com.diskree.xyzbook.XYZBook;
+import net.minecraft.SharedConstants;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.BookEditScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.util.SelectionManager;
+import net.minecraft.client.util.math.Rect2i;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.ScreenTexts;
@@ -20,6 +22,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(BookEditScreen.class)
 public abstract class BookEditScreenMixin extends Screen {
@@ -134,7 +137,8 @@ public abstract class BookEditScreenMixin extends Screen {
     @Shadow
     protected abstract void openNextPage();
 
-    @Shadow private ButtonWidget doneButton;
+    @Shadow
+    private ButtonWidget doneButton;
 
     @Inject(method = "<init>", at = @At(value = "RETURN"))
     public void identifyCustomBook(CallbackInfo ci) {
@@ -190,5 +194,38 @@ public abstract class BookEditScreenMixin extends Screen {
     @ModifyArg(method = "render", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/DrawContext;drawText(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/OrderedText;IIIZ)I"), index = 3)
     public int moveTitle(int originalValue) {
         return isXYZBook ? originalValue - 16 : originalValue;
+    }
+
+    @Inject(method = "drawCursor", at = @At(value = "HEAD"), cancellable = true)
+    public void hideCursor(DrawContext context, BookEditScreen.Position position, boolean atEnd, CallbackInfo ci) {
+        if (isXYZBook) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "drawSelection", at = @At(value = "HEAD"), cancellable = true)
+    public void hideSelection(DrawContext context, Rect2i[] selectionRectangles, CallbackInfo ci) {
+        if (isXYZBook) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "selectCurrentWord", at = @At(value = "HEAD"), cancellable = true)
+    public void disallowCurrentWordSelection(int cursor, CallbackInfo ci) {
+        if (isXYZBook) {
+            ci.cancel();
+        }
+    }
+
+    @Inject(method = "keyPressedEditMode", at = @At(value = "HEAD"), cancellable = true)
+    public void disallowKeyInput(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+        if (isXYZBook) {
+            cir.setReturnValue(false);
+        }
+    }
+
+    @Redirect(method = "charTyped", at = @At(value = "INVOKE", target = "Lnet/minecraft/SharedConstants;isValidChar(C)Z"))
+    public boolean disallowTyping(char chr) {
+        return !isXYZBook && SharedConstants.isValidChar(chr);
     }
 }
