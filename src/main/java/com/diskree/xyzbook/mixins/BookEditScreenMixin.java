@@ -46,7 +46,6 @@ public abstract class BookEditScreenMixin extends Screen {
             currentPage = lastNotEmptyPage;
             updateButtons();
             changePage();
-            getPageContent();
         }
         String textToAppend = entryName + ScreenTexts.LINE_BREAK.getString();
         if (textRenderer.getWrappedLinesHeight(getCurrentPageContent() + textToAppend, MAX_TEXT_WIDTH) > MAX_TEXT_HEIGHT) {
@@ -135,9 +134,6 @@ public abstract class BookEditScreenMixin extends Screen {
     @Shadow
     protected abstract void openNextPage();
 
-    @Shadow
-    protected abstract BookEditScreen.PageContent getPageContent();
-
     @Shadow private ButtonWidget doneButton;
 
     @Inject(method = "<init>", at = @At(value = "RETURN"))
@@ -166,7 +162,7 @@ public abstract class BookEditScreenMixin extends Screen {
                     title = "";
                 }
             }).dimensions(width / 2 - 100, finalizeButton.getY(), 98, 20).build());
-            doneButton.setMessage(Text.translatable("gui.back"));
+            doneButton.setMessage(Text.translatable("mco.selectServer.close"));
         }
     }
 
