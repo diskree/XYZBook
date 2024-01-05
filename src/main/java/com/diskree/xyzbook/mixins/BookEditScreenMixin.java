@@ -6,6 +6,7 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.BookEditScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.util.SelectionManager;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.screen.ScreenTexts;
@@ -40,7 +41,28 @@ public abstract class BookEditScreenMixin extends Screen {
 
     @Unique
     private void insertEntry(String entryName) {
-
+        int lastNotEmptyPage = countPages() - 1;
+        if (currentPage != lastNotEmptyPage) {
+            currentPage = lastNotEmptyPage;
+            updateButtons();
+            changePage();
+            getPageContent();
+        }
+        String textToAppend = entryName + ScreenTexts.LINE_BREAK.getString();
+        if (textRenderer.getWrappedLinesHeight(getCurrentPageContent() + textToAppend, MAX_TEXT_WIDTH) > MAX_TEXT_HEIGHT) {
+            openNextPage();
+            if (currentPage == lastNotEmptyPage) {
+                if (client != null) {
+                    client.setScreen(null);
+                }
+                player.sendMessage(Text.translatable("xyzbook.no_more_space").formatted(Formatting.RED), true);
+                return;
+            }
+        }
+        currentPageSelectionManager.putCursorAtEnd();
+        currentPageSelectionManager.insert(textToAppend);
+        invalidatePageContent();
+        finalizeBook(false);
     }
 
     protected BookEditScreenMixin() {
@@ -69,11 +91,6 @@ public abstract class BookEditScreenMixin extends Screen {
     @Mutable
     @Shadow
     @Final
-    private static Text EDIT_TITLE_TEXT;
-
-    @Mutable
-    @Shadow
-    @Final
     private static Text FINALIZE_WARNING_TEXT;
 
     @Mutable
@@ -85,19 +102,49 @@ public abstract class BookEditScreenMixin extends Screen {
     @Final
     private PlayerEntity player;
 
+    @Shadow
+    @Final
+    private SelectionManager currentPageSelectionManager;
+
+    @Shadow
+    protected abstract void finalizeBook(boolean signBook);
+
+    @Shadow
+    protected abstract void invalidatePageContent();
+
+    @Shadow
+    protected abstract String getCurrentPageContent();
+
+    @Shadow
+    private int currentPage;
+
+    @Shadow
+    protected abstract int countPages();
+
+    @Shadow
+    protected abstract void changePage();
+
+    @Shadow
+    @Final
+    private static int MAX_TEXT_WIDTH;
+
+    @Shadow
+    @Final
+    private static int MAX_TEXT_HEIGHT;
+
+    @Shadow
+    protected abstract void openNextPage();
+
+    @Shadow
+    protected abstract BookEditScreen.PageContent getPageContent();
+
+    @Shadow private ButtonWidget doneButton;
+
     @Inject(method = "<init>", at = @At(value = "RETURN"))
     public void identifyCustomBook(CallbackInfo ci) {
         if (itemStack != null) {
             String name = itemStack.getName().getString();
-            if (name != null) {
-                isXYZBook = name.toLowerCase().contains("xyz");
-                if (isXYZBook) {
-                    EDIT_TITLE_TEXT = Text.translatable("xyzbook.new_entry");
-                    FINALIZE_WARNING_TEXT = Text.translatable("xyzbook.new_entry.note");
-                    xyz = (int) player.getX() + " " + (int) player.getY() + " " + (int) player.getZ();
-                    signedByText = Text.of(xyz).copy().formatted(Formatting.DARK_GRAY).formatted(Formatting.ITALIC);
-                }
-            }
+            isXYZBook = name != null && name.toLowerCase().contains("xyz");
         }
     }
 
@@ -105,6 +152,9 @@ public abstract class BookEditScreenMixin extends Screen {
     public void initCustomButtons(CallbackInfo ci) {
         if (isXYZBook) {
             newEntryButton = addDrawableChild(ButtonWidget.builder(Text.translatable("xyzbook.new_entry"), button -> {
+                xyz = (int) player.getX() + " " + (int) player.getY() + " " + (int) player.getZ();
+                signedByText = Text.literal(xyz).formatted(Formatting.DARK_GRAY, Formatting.ITALIC);
+                FINALIZE_WARNING_TEXT = Text.translatable("xyzbook.new_entry.note");
                 signing = true;
                 updateButtons();
             }).dimensions(width / 2 - 100, signButton.getY(), 98, 20).build());
@@ -116,6 +166,7 @@ public abstract class BookEditScreenMixin extends Screen {
                     title = "";
                 }
             }).dimensions(width / 2 - 100, finalizeButton.getY(), 98, 20).build());
+            doneButton.setMessage(Text.translatable("gui.back"));
         }
     }
 
