@@ -59,8 +59,12 @@ public abstract class BookEditScreenMixin extends Screen {
             updateButtons();
             changePage();
         }
+        String currentPageContent = getCurrentPageContent();
         String textToAppend = entryName + ScreenTexts.LINE_BREAK.getString() + xyz + ScreenTexts.LINE_BREAK.getString() + getDimensionName() + ScreenTexts.LINE_BREAK.getString() + "-------------------" + ScreenTexts.LINE_BREAK.getString();
-        if (textRenderer.getWrappedLinesHeight(getCurrentPageContent() + textToAppend, MAX_TEXT_WIDTH) > MAX_TEXT_HEIGHT) {
+        if (!currentPageContent.isEmpty() && currentPageContent.lastIndexOf("\n") != currentPageContent.length() - 1) {
+            textToAppend = ScreenTexts.LINE_BREAK.getString() + textToAppend;
+        }
+        if (textRenderer.getWrappedLinesHeight(currentPageContent + textToAppend, MAX_TEXT_WIDTH) > MAX_TEXT_HEIGHT) {
             openNextPage();
             if (currentPage == lastNotEmptyPage) {
                 if (client != null) {
@@ -244,36 +248,36 @@ public abstract class BookEditScreenMixin extends Screen {
         return title;
     }
 
-    @Inject(method = "drawCursor", at = @At(value = "HEAD"), cancellable = true)
-    public void hideCursor(DrawContext context, BookEditScreen.Position position, boolean atEnd, CallbackInfo ci) {
-        if (isXYZBook) {
-            ci.cancel();
-        }
-    }
-
-    @Inject(method = "drawSelection", at = @At(value = "HEAD"), cancellable = true)
-    public void hideSelection(DrawContext context, Rect2i[] selectionRectangles, CallbackInfo ci) {
-        if (isXYZBook) {
-            ci.cancel();
-        }
-    }
-
-    @Inject(method = "selectCurrentWord", at = @At(value = "HEAD"), cancellable = true)
-    public void disallowCurrentWordSelection(int cursor, CallbackInfo ci) {
-        if (isXYZBook) {
-            ci.cancel();
-        }
-    }
-
-    @Inject(method = "keyPressedEditMode", at = @At(value = "HEAD"), cancellable = true)
-    public void disallowKeyInput(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-        if (isXYZBook) {
-            cir.setReturnValue(false);
-        }
-    }
-
-    @Redirect(method = "charTyped", at = @At(value = "INVOKE", target = "Lnet/minecraft/SharedConstants;isValidChar(C)Z"))
-    public boolean disallowTyping(char chr) {
-        return !isXYZBook && SharedConstants.isValidChar(chr);
-    }
+//    @Inject(method = "drawCursor", at = @At(value = "HEAD"), cancellable = true)
+//    public void hideCursor(DrawContext context, BookEditScreen.Position position, boolean atEnd, CallbackInfo ci) {
+//        if (isXYZBook) {
+//            ci.cancel();
+//        }
+//    }
+//
+//    @Inject(method = "drawSelection", at = @At(value = "HEAD"), cancellable = true)
+//    public void hideSelection(DrawContext context, Rect2i[] selectionRectangles, CallbackInfo ci) {
+//        if (isXYZBook) {
+//            ci.cancel();
+//        }
+//    }
+//
+//    @Inject(method = "selectCurrentWord", at = @At(value = "HEAD"), cancellable = true)
+//    public void disallowCurrentWordSelection(int cursor, CallbackInfo ci) {
+//        if (isXYZBook) {
+//            ci.cancel();
+//        }
+//    }
+//
+//    @Inject(method = "keyPressedEditMode", at = @At(value = "HEAD"), cancellable = true)
+//    public void disallowKeyInput(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
+//        if (isXYZBook) {
+//            cir.setReturnValue(false);
+//        }
+//    }
+//
+//    @Redirect(method = "charTyped", at = @At(value = "INVOKE", target = "Lnet/minecraft/SharedConstants;isValidChar(C)Z"))
+//    public boolean disallowTyping(char chr) {
+//        return !isXYZBook && SharedConstants.isValidChar(chr);
+//    }
 }
