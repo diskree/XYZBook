@@ -1,14 +1,12 @@
 package com.diskree.xyzbook.mixins;
 
 import com.diskree.xyzbook.XYZBook;
-import net.minecraft.SharedConstants;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.BookEditScreen;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.util.SelectionManager;
-import net.minecraft.client.util.math.Rect2i;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.RegistryKey;
@@ -18,20 +16,21 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
 import net.minecraft.world.World;
-import org.jetbrains.annotations.NotNull;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(BookEditScreen.class)
 public abstract class BookEditScreenMixin extends Screen {
 
     @Unique
     private static final int MAX_ENTRY_NAME_LENGTH = 50;
+
+    @Unique
+    private static final String SEPARATOR = "-------------------";
 
     @Unique
     private static final Identifier XYZ_BOOK_TEXTURE = new Identifier(XYZBook.ID, "textures/gui/xyzbook.png");
@@ -49,9 +48,6 @@ public abstract class BookEditScreenMixin extends Screen {
     private String xyz;
 
     @Unique
-    private RegistryKey<World> dimension;
-
-    @Unique
     private void insertEntry(String entryName) {
         int lastNotEmptyPage = countPages() - 1;
         if (currentPage != lastNotEmptyPage) {
@@ -59,12 +55,16 @@ public abstract class BookEditScreenMixin extends Screen {
             updateButtons();
             changePage();
         }
+        String newLine = ScreenTexts.LINE_BREAK.getString();
         String currentPageContent = getCurrentPageContent();
-        String textToAppend = entryName + ScreenTexts.LINE_BREAK.getString() + xyz + ScreenTexts.LINE_BREAK.getString() + getDimensionName() + ScreenTexts.LINE_BREAK.getString() + "-------------------" + ScreenTexts.LINE_BREAK.getString();
-        if (!currentPageContent.isEmpty() && currentPageContent.lastIndexOf("\n") != currentPageContent.length() - 1) {
-            textToAppend = ScreenTexts.LINE_BREAK.getString() + textToAppend;
-        }
-        if (textRenderer.getWrappedLinesHeight(currentPageContent + textToAppend, MAX_TEXT_WIDTH) > MAX_TEXT_HEIGHT) {
+        boolean isNeedTopSeparator = !currentPageContent.isEmpty() && currentPageContent.lastIndexOf(newLine) != currentPageContent.length() - 1;
+        String topSeparator = isNeedTopSeparator ? newLine : "";
+        String textToAppend = entryName + newLine + xyz;
+        if (textRenderer.getWrappedLinesHeight(currentPageContent + topSeparator + textToAppend + newLine + SEPARATOR, MAX_TEXT_WIDTH) <= MAX_TEXT_HEIGHT) {
+            textToAppend += newLine + SEPARATOR;
+        } else if (textRenderer.getWrappedLinesHeight(currentPageContent + topSeparator + textToAppend, MAX_TEXT_WIDTH) > MAX_TEXT_HEIGHT) {
+            textToAppend += newLine + SEPARATOR;
+            isNeedTopSeparator = false;
             openNextPage();
             if (currentPage == lastNotEmptyPage) {
                 if (client != null) {
@@ -74,23 +74,13 @@ public abstract class BookEditScreenMixin extends Screen {
                 return;
             }
         }
+        if (isNeedTopSeparator) {
+            textToAppend = newLine + textToAppend;
+        }
         currentPageSelectionManager.putCursorAtEnd();
         currentPageSelectionManager.insert(textToAppend);
         invalidatePageContent();
         finalizeBook(false);
-    }
-
-    @Unique
-    @NotNull
-    private String getDimensionName() {
-        if (dimension == World.OVERWORLD) {
-            return Text.translatable("flat_world_preset.minecraft.overworld").getString();
-        } else if (dimension == World.NETHER) {
-            return Text.translatable("advancements.nether.root.title").getString();
-        } else if (dimension == World.END) {
-            return Text.translatable("advancements.end.root.title").getString();
-        }
-        return dimension.getValue().toString();
     }
 
     protected BookEditScreenMixin() {
@@ -192,9 +182,17 @@ public abstract class BookEditScreenMixin extends Screen {
     public void initCustomButtons(CallbackInfo ci) {
         if (isXYZBook) {
             newEntryButton = addDrawableChild(ButtonWidget.builder(Text.translatable("xyzbook.new_entry"), button -> {
-                xyz = (int) player.getX() + " " + (int) player.getY() + " " + (int) player.getZ();
-                dimension = player.getWorld().getRegistryKey();
-                signedByText = Text.literal(xyz).formatted(Formatting.DARK_GRAY, Formatting.ITALIC);
+                RegistryKey<World> dimension = player.getWorld().getRegistryKey();
+                String dimensionColor;
+                if (dimension == World.OVERWORLD) {
+                    dimensionColor = "§2";
+                } else if (dimension == World.NETHER) {
+                    dimensionColor = "§4";
+                } else {
+                    dimensionColor = "§5";
+                }
+                xyz = dimensionColor + (int) player.getX() + " " + (int) player.getY() + " " + (int) player.getZ() + "§r";
+                signedByText = Text.literal(xyz);
                 FINALIZE_WARNING_TEXT = Text.translatable("xyzbook.new_entry.note");
                 signing = true;
                 updateButtons();
@@ -207,7 +205,6 @@ public abstract class BookEditScreenMixin extends Screen {
                     title = "";
                 }
             }).dimensions(width / 2 - 100, finalizeButton.getY(), 98, 20).build());
-            doneButton.setMessage(Text.translatable("mco.selectServer.close"));
         }
     }
 
@@ -248,36 +245,15 @@ public abstract class BookEditScreenMixin extends Screen {
         return title;
     }
 
-//    @Inject(method = "drawCursor", at = @At(value = "HEAD"), cancellable = true)
-//    public void hideCursor(DrawContext context, BookEditScreen.Position position, boolean atEnd, CallbackInfo ci) {
-//        if (isXYZBook) {
-//            ci.cancel();
-//        }
-//    }
-//
-//    @Inject(method = "drawSelection", at = @At(value = "HEAD"), cancellable = true)
-//    public void hideSelection(DrawContext context, Rect2i[] selectionRectangles, CallbackInfo ci) {
-//        if (isXYZBook) {
-//            ci.cancel();
-//        }
-//    }
-//
-//    @Inject(method = "selectCurrentWord", at = @At(value = "HEAD"), cancellable = true)
-//    public void disallowCurrentWordSelection(int cursor, CallbackInfo ci) {
-//        if (isXYZBook) {
-//            ci.cancel();
-//        }
-//    }
-//
-//    @Inject(method = "keyPressedEditMode", at = @At(value = "HEAD"), cancellable = true)
-//    public void disallowKeyInput(int keyCode, int scanCode, int modifiers, CallbackInfoReturnable<Boolean> cir) {
-//        if (isXYZBook) {
-//            cir.setReturnValue(false);
-//        }
-//    }
-//
-//    @Redirect(method = "charTyped", at = @At(value = "INVOKE", target = "Lnet/minecraft/SharedConstants;isValidChar(C)Z"))
-//    public boolean disallowTyping(char chr) {
-//        return !isXYZBook && SharedConstants.isValidChar(chr);
-//    }
+    @Redirect(method = "keyPressedSignMode", at = @At(value = "INVOKE", target = "Lnet/minecraft/client/gui/screen/ingame/BookEditScreen;finalizeBook(Z)V"))
+    public void disallowKeyInput(BookEditScreen screen, boolean signBook) {
+        if (isXYZBook) {
+            signing = false;
+            updateButtons();
+            insertEntry(title.trim());
+            title = "";
+        } else {
+            finalizeBook(signBook);
+        }
+    }
 }
