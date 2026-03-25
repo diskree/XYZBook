@@ -10,6 +10,8 @@ import java.util.Locale;
 
 public class XYZBook implements ClientModInitializer {
 
+    public static final Identifier GUI_TEXTURE = Identifier.of(BuildConfig.MOD_ID, "textures/gui/xyzbook.png");
+
     public static boolean isXYZBook(ItemStack stack) {
         return stack.contains(DataComponentTypes.CUSTOM_NAME) &&
             stack.getName().getString().toLowerCase(Locale.ROOT).contains("xyz");

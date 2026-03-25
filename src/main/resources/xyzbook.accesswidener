@@ -1,8 +1,7 @@
 accessWidener v2 named
 
 accessible field net/minecraft/client/render/item/property/bool/BooleanProperties ID_MAPPER Lnet/minecraft/util/dynamic/Codecs$IdMapper;
-
-accessible class net/minecraft/client/gui/screen/ingame/BookEditScreen$Position
+accessible field net/minecraft/client/gui/screen/ingame/BookEditScreen currentPage I
 
 accessible field net/minecraft/client/util/SelectionManager stringGetter Ljava/util/function/Supplier;
 accessible field net/minecraft/client/util/SelectionManager stringSetter Ljava/util/function/Consumer;
