@@ -24,7 +24,8 @@
   "depends": {
     "java": ">=${minJavaVersion}",
     "minecraft": ">=${minMinecraftVersion}",
-    "fabricloader": ">=${minLoaderVersion}"
+    "fabricloader": ">=${minLoaderVersion}",
+    "fabric-api": "*"
   },
   "accessWidener": "xyzbook.accesswidener"
 }

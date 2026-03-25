@@ -1,19 +1,25 @@
 package com.diskree.xyzbook.mixins;
 
 import com.diskree.xyzbook.BuildConfig;
+import com.diskree.xyzbook.XYZBook;
+import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.BookEditScreen;
+import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.render.RenderLayer;
 import net.minecraft.client.util.SelectionManager;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.RegistryKey;
 import net.minecraft.screen.ScreenTexts;
+import net.minecraft.text.OrderedText;
 import net.minecraft.text.StringVisitable;
+import net.minecraft.text.Style;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.Identifier;
@@ -22,9 +28,9 @@ import org.apache.http.util.TextUtils;
 import org.spongepowered.asm.mixin.*;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyArg;
-import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.function.Function;
 
 @Mixin(BookEditScreen.class)
 public abstract class BookEditScreenMixin extends Screen {
@@ -42,7 +48,7 @@ public abstract class BookEditScreenMixin extends Screen {
     private ButtonWidget newEntryButton;
 
     @Unique
-    private ButtonWidget newEntryDoneButton;
+    private ButtonWidget addEntryButton;
 
     @Unique
     private boolean isXYZBook;
@@ -51,44 +57,25 @@ public abstract class BookEditScreenMixin extends Screen {
     private String coordinates;
 
     @Unique
-    private void insertEntry(String entryName) {
-        int lastNotEmptyPage = countPages() - 1;
-        if (currentPage != lastNotEmptyPage) {
-            currentPage = lastNotEmptyPage;
-            updateButtons();
-            changePage();
-        }
-        String newLine = ScreenTexts.LINE_BREAK.getString();
-        String currentPageContent = getCurrentPageContent();
-        boolean isNeedTopSeparator = !currentPageContent.isEmpty() &&
-            currentPageContent.lastIndexOf(newLine) != currentPageContent.length() - 1;
-        String topSeparator = isNeedTopSeparator ? newLine : "";
-        String textToAppend = entryName + newLine + coordinates;
-        if (textRenderer.getWrappedLinesHeight(
-            currentPageContent + topSeparator + textToAppend + newLine + SEPARATOR, MAX_TEXT_WIDTH
-        ) <= MAX_TEXT_HEIGHT) {
-            textToAppend += newLine + SEPARATOR;
-        } else if (textRenderer.getWrappedLinesHeight(
-            currentPageContent + topSeparator + textToAppend, MAX_TEXT_WIDTH
-        ) > MAX_TEXT_HEIGHT) {
-            textToAppend += newLine + SEPARATOR;
-            isNeedTopSeparator = false;
-            openNextPage();
-            if (currentPage == lastNotEmptyPage) {
-                if (client != null) {
-                    client.setScreen(null);
-                }
-                player.sendMessage(Text.translatable("xyzbook.no_more_space").formatted(Formatting.RED), true);
-                return;
-            }
-        }
-        if (isNeedTopSeparator) {
-            textToAppend = newLine + textToAppend;
-        }
+    private String prepareEntry() {
+        String current = getCurrentPageContent();
+        String prefix = (current.isEmpty() || current.endsWith("\n")) ? "" : "\n";
+        return prefix + title.trim() + "\n" + coordinates;
+    }
+
+    @Unique
+    private void insertEntry() {
+        String baseEntry = prepareEntry();
+        String fullEntry = baseEntry + "\n" + SEPARATOR;
         currentPageSelectionManager.putCursorAtEnd();
-        currentPageSelectionManager.insert(textToAppend);
+        currentPageSelectionManager.insert(willFit(fullEntry) ? fullEntry : baseEntry);
         invalidatePageContent();
         finalizeBook(false);
+    }
+
+    @Unique
+    private boolean willFit(String text) {
+        return textRenderer.getWrappedLinesHeight(getCurrentPageContent() + text, MAX_TEXT_WIDTH) <= MAX_TEXT_HEIGHT;
     }
 
     protected BookEditScreenMixin() {
@@ -137,24 +124,12 @@ public abstract class BookEditScreenMixin extends Screen {
     protected abstract String getCurrentPageContent();
 
     @Shadow
-    private int currentPage;
-
-    @Shadow
-    protected abstract int countPages();
-
-    @Shadow
-    protected abstract void changePage();
-
-    @Shadow
     @Final
     private static int MAX_TEXT_WIDTH;
 
     @Shadow
     @Final
     private static int MAX_TEXT_HEIGHT;
-
-    @Shadow
-    protected abstract void openNextPage();
 
     @Mutable
     @Shadow
@@ -163,12 +138,11 @@ public abstract class BookEditScreenMixin extends Screen {
 
     @Inject(
         method = "<init>",
-        at = @At(value = "RETURN")
+        at = @At(value = "TAIL")
     )
-    public void identifyXYZBook(CallbackInfo ci) {
+    public void checkXYZBook(CallbackInfo ci) {
         if (stack != null) {
-            String name = stack.getName().getString();
-            isXYZBook = name != null && name.toLowerCase().contains("xyz");
+            isXYZBook = XYZBook.isXYZBook(stack);
         }
         if (isXYZBook) {
             bookTitleSelectionManager = new SelectionManager(
@@ -181,14 +155,14 @@ public abstract class BookEditScreenMixin extends Screen {
         }
     }
 
-    @Inject(
+    @WrapOperation(
         method = "init",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/client/gui/screen/ingame/BookEditScreen;updateButtons()V"
         )
     )
-    public void initXYZButtons(CallbackInfo ci) {
+    public void initXYZButtons(BookEditScreen instance, Operation<Void> original) {
         if (isXYZBook) {
             newEntryButton = addDrawableChild(ButtonWidget.builder(Text.translatable("xyzbook.new_entry"), button -> {
                 RegistryKey<World> dimension = player.getWorld().getRegistryKey();
@@ -200,47 +174,63 @@ public abstract class BookEditScreenMixin extends Screen {
                 } else {
                     dimensionColor = "§5";
                 }
-                coordinates = dimensionColor + (int) player.getX() + " " + (int) player.getY() + " " + (int) player.getZ() + "§r";
+                coordinates = dimensionColor +
+                    (int) player.getX() + " " + (int) player.getY() + " " + (int) player.getZ() + "§r";
                 signedByText = Text.literal(coordinates);
                 signing = true;
                 updateButtons();
             }).dimensions(width / 2 - 100, signButton.getY(), 98, 20).build());
-            newEntryDoneButton = addDrawableChild(ButtonWidget.builder(ScreenTexts.DONE, button -> {
+            addEntryButton = addDrawableChild(ButtonWidget.builder(ScreenTexts.DONE, button -> {
                 if (signing) {
                     signing = false;
                     updateButtons();
-                    insertEntry(title.trim());
+                    insertEntry();
                     title = "";
                 }
             }).dimensions(width / 2 - 100, finalizeButton.getY(), 98, 20).build());
         }
+        original.call(instance);
     }
 
     @Inject(
         method = "updateButtons",
-        at = @At(value = "RETURN")
+        at = @At(value = "TAIL")
     )
     public void updateXYZButtons(CallbackInfo ci) {
-        if (isXYZBook) {
-            signButton.visible = false;
-            finalizeButton.visible = false;
-            newEntryButton.visible = !signing;
-            newEntryDoneButton.visible = signing;
-            newEntryDoneButton.active = !TextUtils.isBlank(title);
+        if (!isXYZBook) return;
+
+        signButton.visible = false;
+        finalizeButton.visible = false;
+        newEntryButton.visible = !signing;
+        addEntryButton.visible = signing;
+
+        if (signing) {
+            boolean isTitleEmpty = TextUtils.isBlank(title);
+            boolean fits = willFit(prepareEntry());
+            addEntryButton.active = !isTitleEmpty && fits;
+            if (isTitleEmpty || fits) {
+                addEntryButton.setTooltip(null);
+            } else {
+                addEntryButton.setTooltip(Tooltip.of(
+                    Text.translatable("xyzbook.no_more_space").formatted(Formatting.RED)
+                ));
+            }
         }
     }
 
-    @ModifyArg(
+    @WrapOperation(
         method = "renderBackground",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/client/gui/DrawContext;drawTexture(Ljava/util/function/Function;Lnet/minecraft/util/Identifier;IIFFIIII)V",
             ordinal = 0
-        ),
-        index = 1
+        )
     )
-    public Identifier setCustomBackground(Identifier originalValue) {
-        return isXYZBook ? XYZ_BOOK_TEXTURE : originalValue;
+    public void setCustomBackground(DrawContext instance, Function<Identifier, RenderLayer> renderLayers, Identifier sprite, int x, int y, float u, float v, int width, int height, int textureWidth, int textureHeight, Operation<Void> original) {
+        original.call(instance, renderLayers,
+            isXYZBook ? XYZ_BOOK_TEXTURE : sprite,
+            x, y, u, v, width, height, textureWidth, textureHeight
+        );
     }
 
     @WrapOperation(
@@ -264,74 +254,66 @@ public abstract class BookEditScreenMixin extends Screen {
         return isXYZBook ? 0 : original.call(context, textRenderer, text, x, y, color, shadow);
     }
 
-    @WrapOperation(
+    @WrapWithCondition(
         method = "render",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/client/gui/DrawContext;drawWrappedText(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/StringVisitable;IIIIZ)V"
         )
     )
-    public void hideFinalizeText(
-        DrawContext instance,
-        TextRenderer textRenderer,
-        StringVisitable text,
-        int x,
-        int y,
-        int width,
-        int color,
-        boolean shadow,
-        Operation<Void> original
+    public boolean hideFinalizeText(
+        DrawContext instance, TextRenderer textRenderer, StringVisitable text, int x, int y, int width, int color, boolean shadow
     ) {
-        if (isXYZBook) {
-            return;
-        }
-        original.call(instance, textRenderer, text, x, y, width, color, shadow);
+        return !isXYZBook;
     }
 
-    @ModifyArg(
+    @WrapOperation(
         method = "render",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/client/gui/DrawContext;drawText(Lnet/minecraft/client/font/TextRenderer;Lnet/minecraft/text/OrderedText;IIIZ)I"
-        ),
-        index = 3
+        )
     )
-    public int moveTitle(int originalValue) {
-        return isXYZBook ? originalValue - 16 : originalValue;
+    public int moveTitle(DrawContext instance, TextRenderer textRenderer, OrderedText text, int x, int y, int color, boolean shadow, Operation<Integer> original) {
+        return original.call(instance, textRenderer, text, x,
+            isXYZBook ? y - 16 : y,
+            color, shadow
+        );
     }
 
-    @ModifyArg(
+    @WrapOperation(
         method = "render",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/text/OrderedText;styledForwardsVisitedString(Ljava/lang/String;Lnet/minecraft/text/Style;)Lnet/minecraft/text/OrderedText;"
-        ), index = 0
+        )
     )
-    public String ellipsisTitle(String title) {
-        if (isXYZBook) {
-            int maxWidth = MAX_TEXT_WIDTH - 10;
-            if (textRenderer.getWidth(title) >= maxWidth) {
-                return title.substring(title.length() - textRenderer.trimToWidth(title, maxWidth).length());
-            }
+    public OrderedText ellipsisTitle(String string, Style style, Operation<OrderedText> original) {
+        int maxWidth = MAX_TEXT_WIDTH - 10;
+        if (!isXYZBook || textRenderer.getWidth(title) < maxWidth) {
+            return original.call(string, style);
         }
-        return title;
+        return original.call(
+            title.substring(title.length() - textRenderer.trimToWidth(title, maxWidth).length()),
+            style
+        );
     }
 
-    @Redirect(
+    @WrapOperation(
         method = "keyPressedSignMode",
         at = @At(
             value = "INVOKE",
             target = "Lnet/minecraft/client/gui/screen/ingame/BookEditScreen;finalizeBook(Z)V"
         )
     )
-    public void disallowKeyInput(BookEditScreen screen, boolean signBook) {
-        if (isXYZBook) {
-            signing = false;
-            updateButtons();
-            insertEntry(title.trim());
-            title = "";
-        } else {
-            finalizeBook(signBook);
+    public void disallowKeyInput(BookEditScreen instance, boolean signBook, Operation<Void> original) {
+        if (!isXYZBook) {
+            original.call(instance, signBook);
+            return;
         }
+        signing = false;
+        updateButtons();
+        insertEntry();
+        title = "";
     }
 }

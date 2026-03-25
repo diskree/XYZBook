@@ -9,6 +9,6 @@
       "type": "minecraft:model",
       "model": "xyzbook:item/xyzbook"
     },
-    "property": "xyzbook:xyzbook"
+    "property": "xyzbook:is_xyz"
   }
 }
