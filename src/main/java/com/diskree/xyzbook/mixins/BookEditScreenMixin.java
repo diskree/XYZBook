@@ -48,7 +48,7 @@ public abstract class BookEditScreenMixin {
     public void checkXYZBook(CallbackInfo ci) {
         isXYZBook = stack != null && XYZBook.isXYZBook(stack);
         if (isXYZBook && signingScreen instanceof BookSigningScreenExtension bookSigningScreenExtension) {
-            RegistryKey<World> dimension = player.getWorld().getRegistryKey();
+            RegistryKey<World> dimension = player.getEntityWorld().getRegistryKey();
             String dimensionColor;
             if (dimension == World.OVERWORLD) {
                 dimensionColor = "§2";
