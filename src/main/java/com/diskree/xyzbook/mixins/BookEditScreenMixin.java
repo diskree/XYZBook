@@ -1,20 +1,21 @@
 package com.diskree.xyzbook.mixins;
 
 import com.diskree.xyzbook.XYZBook;
-import com.diskree.xyzbook.extensions.BookSigningScreenExtension;
+import com.diskree.xyzbook.extensions.BookSignScreenExtension;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.screen.ingame.BookEditScreen;
-import net.minecraft.client.gui.screen.ingame.BookSigningScreen;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.item.ItemStack;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.World;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.inventory.BookEditScreen;
+import net.minecraft.client.gui.screens.inventory.BookSignScreen;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -31,37 +32,36 @@ public abstract class BookEditScreenMixin {
 
     @Shadow
     @Final
-    private ItemStack stack;
+    private ItemStack book;
 
     @Shadow
     @Final
-    private PlayerEntity player;
+    private Player owner;
 
     @Shadow
     @Final
-    private BookSigningScreen signingScreen;
+    private BookSignScreen signScreen;
 
     @Inject(
         method = "<init>",
         at = @At(value = "TAIL")
     )
     public void checkXYZBook(CallbackInfo ci) {
-        isXYZBook = stack != null && XYZBook.isXYZBook(stack);
-        if (isXYZBook && signingScreen instanceof BookSigningScreenExtension bookSigningScreenExtension) {
-            RegistryKey<World> dimension = player.getEntityWorld().getRegistryKey();
-            String dimensionColor;
-            if (dimension == World.OVERWORLD) {
-                dimensionColor = "§2";
-            } else if (dimension == World.NETHER) {
-                dimensionColor = "§4";
+        isXYZBook = book != null && XYZBook.isXYZBook(book);
+        if (isXYZBook && signScreen instanceof BookSignScreenExtension ext) {
+            ResourceKey<Level> level = owner.level().dimension();
+            ChatFormatting color;
+            if (level == Level.OVERWORLD) {
+                color = ChatFormatting.DARK_GREEN;
+            } else if (level == Level.NETHER) {
+                color = ChatFormatting.DARK_RED;
+            } else if (level == Level.END) {
+                color = ChatFormatting.DARK_PURPLE;
             } else {
-                dimensionColor = "§5";
+                color = ChatFormatting.DARK_GRAY;
             }
-            bookSigningScreenExtension.xyzbook$setCoordinates(
-                Text.of(
-                    dimensionColor + (int) player.getX() + " " + (int) player.getY() + " " + (int) player.getZ() + "§r"
-                )
-            );
+            String xyz = (int) owner.getX() + " " + (int) owner.getY() + " " + (int) owner.getZ();
+            ext.xyzbook$setCoordinates(Component.literal(color + xyz + ChatFormatting.RESET));
         }
     }
 
@@ -69,25 +69,35 @@ public abstract class BookEditScreenMixin {
         method = "init",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/widget/ButtonWidget;builder(Lnet/minecraft/text/Text;Lnet/minecraft/client/gui/widget/ButtonWidget$PressAction;)Lnet/minecraft/client/gui/widget/ButtonWidget$Builder;",
+            target = "Lnet/minecraft/client/gui/components/Button;builder(Lnet/minecraft/network/chat/Component;Lnet/minecraft/client/gui/components/Button$OnPress;)Lnet/minecraft/client/gui/components/Button$Builder;",
             ordinal = 0
         )
     )
-    public ButtonWidget.Builder overrideSignButtonText(Text message, ButtonWidget.PressAction onPress, Operation<ButtonWidget.Builder> original) {
-        return original.call(isXYZBook ? Text.translatable("xyzbook.new_entry") : message, onPress);
+    public Button.Builder overrideSignButtonText(
+        Component message, Button.OnPress onPress,
+        Operation<Button.Builder> original
+    ) {
+        return original.call(
+            isXYZBook ? Component.translatable("xyzbook.new_entry") : message,
+            onPress
+        );
     }
 
     @WrapOperation(
-        method = "renderBackground",
+        method = "extractBackground",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/client/gui/DrawContext;drawTexture(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/util/Identifier;IIFFIIII)V",
+            target = "Lnet/minecraft/client/gui/GuiGraphicsExtractor;blit(Lcom/mojang/blaze3d/pipeline/RenderPipeline;Lnet/minecraft/resources/Identifier;IIFFIIII)V",
             ordinal = 0
         )
     )
-    public void setCustomBackground(DrawContext instance, RenderPipeline pipeline, Identifier sprite, int x, int y, float u, float v, int width, int height, int textureWidth, int textureHeight, Operation<Void> original) {
-        original.call(instance, pipeline,
-            isXYZBook ? XYZBook.GUI_TEXTURE : sprite,
+    public void setCustomBackground(
+        GuiGraphicsExtractor graphics, RenderPipeline renderPipeline, Identifier texture,
+        int x, int y, float u, float v, int width, int height, int textureWidth, int textureHeight,
+        Operation<Void> original
+    ) {
+        original.call(graphics, renderPipeline,
+            isXYZBook ? XYZBook.GUI_TEXTURE : texture,
             x, y, u, v, width, height, textureWidth, textureHeight
         );
     }

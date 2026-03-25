@@ -7,6 +7,6 @@
   },
   "client": [
     "BookEditScreenMixin",
-    "BookSigningScreenMixin"
+    "BookSignScreenMixin"
   ]
 }

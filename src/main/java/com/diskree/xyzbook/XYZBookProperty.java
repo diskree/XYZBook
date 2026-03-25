@@ -3,25 +3,32 @@ package com.diskree.xyzbook;
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
-import net.minecraft.client.render.item.property.bool.BooleanProperty;
-import net.minecraft.client.world.ClientWorld;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.item.ItemDisplayContext;
-import net.minecraft.item.ItemStack;
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.item.properties.conditional.ConditionalItemModelProperty;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.item.ItemDisplayContext;
+import net.minecraft.world.item.ItemStack;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 @Environment(EnvType.CLIENT)
-public record XYZBookProperty() implements BooleanProperty {
+public record XYZBookProperty() implements ConditionalItemModelProperty {
 
     public static final MapCodec<XYZBookProperty> CODEC = MapCodec.unit(new XYZBookProperty());
 
     @Override
-    public boolean test(ItemStack stack, @Nullable ClientWorld world, @Nullable LivingEntity entity, int seed, ItemDisplayContext displayContext) {
-        return XYZBook.isXYZBook(stack);
+    public boolean get(
+        @NonNull ItemStack itemStack,
+        @Nullable ClientLevel level,
+        @Nullable LivingEntity owner,
+        int seed,
+        @NonNull ItemDisplayContext displayContext
+    ) {
+        return XYZBook.isXYZBook(itemStack);
     }
 
     @Override
-    public MapCodec<XYZBookProperty> getCodec() {
+    public @NonNull MapCodec<? extends ConditionalItemModelProperty> type() {
         return CODEC;
     }
 }
