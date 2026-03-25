@@ -11,6 +11,7 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.screen.ingame.BookEditScreen;
 import net.minecraft.client.gui.screen.ingame.BookSigningScreen;
 import net.minecraft.client.gui.tooltip.Tooltip;
@@ -198,5 +199,17 @@ public abstract class BookSigningScreenMixin implements BookSigningScreenExtensi
             }
         }
         return original.call(slot, pages, isXYZBook ? Optional.<String>empty() : title);
+    }
+
+    @WrapOperation(
+        method = {"keyPressed", "method_71543"},
+        at = @At(
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/MinecraftClient;setScreen(Lnet/minecraft/client/gui/screen/Screen;)V",
+            ordinal = 0
+        )
+    )
+    public void backToEditScreen(MinecraftClient instance, Screen screen, Operation<Void> original) {
+        original.call(instance, isXYZBook ? editScreen : screen);
     }
 }
