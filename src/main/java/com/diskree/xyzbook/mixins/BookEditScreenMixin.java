@@ -2,13 +2,13 @@ package com.diskree.xyzbook.mixins;
 
 import com.diskree.xyzbook.XYZBook;
 import com.diskree.xyzbook.extensions.BookSigningScreenExtension;
-import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ingame.BookEditScreen;
 import net.minecraft.client.gui.screen.ingame.BookSigningScreen;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.registry.RegistryKey;
@@ -65,15 +65,16 @@ public abstract class BookEditScreenMixin {
         }
     }
 
-    @ModifyExpressionValue(
+    @WrapOperation(
         method = "init",
         at = @At(
-            value = "CONSTANT",
-            args = "stringValue=book.signButton"
+            value = "INVOKE",
+            target = "Lnet/minecraft/client/gui/widget/ButtonWidget;builder(Lnet/minecraft/text/Text;Lnet/minecraft/client/gui/widget/ButtonWidget$PressAction;)Lnet/minecraft/client/gui/widget/ButtonWidget$Builder;",
+            ordinal = 0
         )
     )
-    public String overrideSignButtonText(String original) {
-        return isXYZBook ? "xyzbook.new_entry" : original;
+    public ButtonWidget.Builder overrideSignButtonText(Text message, ButtonWidget.PressAction onPress, Operation<ButtonWidget.Builder> original) {
+        return original.call(isXYZBook ? Text.translatable("xyzbook.new_entry") : message, onPress);
     }
 
     @WrapOperation(
