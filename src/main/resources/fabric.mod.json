@@ -3,7 +3,7 @@
   "id": "${modId}",
   "version": "${modVersion}",
   "name": "${modName}",
-  "description": "Easy-to-use book for coordinates storage.",
+  "description": "A client-side mod with easy-to-use book for coordinates storage.",
   "authors": [
     "${author}"
   ],
@@ -15,7 +15,7 @@
   "environment": "client",
   "entrypoints": {
     "client": [
-      "com.diskree.xyzbook.XYZBook"
+      "io.github.diskria.xyzbook.XYZBook"
     ]
   },
   "mixins": [

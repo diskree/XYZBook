@@ -1,7 +1,7 @@
-package com.diskree.xyzbook.mixins;
+package io.github.diskria.xyzbook.mixins;
 
-import com.diskree.xyzbook.XYZBook;
-import com.diskree.xyzbook.extensions.BookSignScreenExtension;
+import io.github.diskria.xyzbook.XYZBook;
+import io.github.diskria.xyzbook.extensions.BookSignScreenExtension;
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 import com.llamalad7.mixinextras.injector.v2.WrapWithCondition;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
@@ -11,6 +11,7 @@ import com.mojang.blaze3d.pipeline.RenderPipeline;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -80,6 +81,8 @@ public abstract class BookSignScreenMixin implements BookSignScreenExtension {
 
     @Shadow
     private EditBox titleBox;
+
+    @Shadow private String titleValue;
 
     @ModifyExpressionValue(
         method = "init",
@@ -167,12 +170,15 @@ public abstract class BookSignScreenMixin implements BookSignScreenExtension {
         method = {"keyPressed", "lambda$init$0"},
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/client/Minecraft;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V",
+            target = "Lnet/minecraft/client/gui/Gui;setScreen(Lnet/minecraft/client/gui/screens/Screen;)V",
             ordinal = 0
         )
     )
-    public void backToEditScreen(Minecraft minecraft, Screen screen, Operation<Void> original) {
-        original.call(minecraft, isXYZBook ? bookEditScreen : screen);
+    public void backToEditScreen(Gui instance, Screen screen, Operation<Void> original) {
+        if (isXYZBook) {
+            titleValue = "";
+        }
+        original.call(instance, isXYZBook ? bookEditScreen : screen);
     }
 
     @WrapOperation(
@@ -213,11 +219,11 @@ public abstract class BookSignScreenMixin implements BookSignScreenExtension {
         Button signButton,
         boolean isTitleNotEmpty,
         Operation<Void> original,
-        @Local(ordinal = 0, argsOnly = true) String bookTitle
+        @Local(argsOnly = true, name = "value") String value
     ) {
         Minecraft client = Minecraft.getInstance();
-        if (client.screen instanceof BookSignScreenExtension ext && ext.xyzbook$isXYZBook()) {
-            boolean canFit = canFitToPage(ext.xyzbook$buildModifiedPageWithEntry(bookTitle));
+        if (client.gui.screen() instanceof BookSignScreenExtension ext && ext.xyzbook$isXYZBook()) {
+            boolean canFit = canFitToPage(ext.xyzbook$buildModifiedPageWithEntry(value));
             original.call(signButton, isTitleNotEmpty && canFit);
             if (isTitleNotEmpty && !canFit) {
                 signButton.setTooltip(Tooltip.create(

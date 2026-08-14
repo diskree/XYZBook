@@ -1,7 +1,7 @@
-package com.diskree.xyzbook.mixins;
+package io.github.diskria.xyzbook.mixins;
 
-import com.diskree.xyzbook.XYZBook;
-import com.diskree.xyzbook.extensions.BookSignScreenExtension;
+import io.github.diskria.xyzbook.XYZBook;
+import io.github.diskria.xyzbook.extensions.BookSignScreenExtension;
 import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
 import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
 import com.mojang.blaze3d.pipeline.RenderPipeline;

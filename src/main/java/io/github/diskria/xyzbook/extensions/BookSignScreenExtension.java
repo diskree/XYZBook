@@ -1,4 +1,4 @@
-package com.diskree.xyzbook.extensions;
+package io.github.diskria.xyzbook.extensions;
 
 import net.minecraft.network.chat.Component;
 

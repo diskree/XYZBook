@@ -1,4 +1,4 @@
-package com.diskree.xyzbook;
+package io.github.diskria.xyzbook;
 
 import com.mojang.serialization.MapCodec;
 import net.fabricmc.api.EnvType;

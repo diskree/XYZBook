@@ -1,4 +1,4 @@
-package com.diskree.xyzbook;
+package io.github.diskria.xyzbook;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.minecraft.client.renderer.item.properties.conditional.ConditionalItemModelProperties;
